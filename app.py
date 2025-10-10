@@ -23,13 +23,14 @@ DATA_SPECS = {
 }
 
 
+# Ensure CSV files exist with headers
 for spec in DATA_SPECS.values():
     path = DATA_DIR / spec["filename"]
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         with path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
-            writer.writerow(spec["headers"])
+            writer.writerow(spec["headers"]) 
 
 
 def ensure_directories():
@@ -708,4 +709,3 @@ EMAIL_SERVICE = EmailService(EMAIL_LOG)
 if __name__ == "__main__":
     app = TutorRenApp()
     app.mainloop()
-
