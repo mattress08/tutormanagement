@@ -15,6 +15,7 @@ DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 TIME_SLOTS = [f"{hour:02d}:00" for hour in range(8, 21)]
 
 
+# ---------- Theming ----------
 class ThemePalette:
     BACKGROUND = "#0f172a"
     SURFACE = "#18263c"
@@ -173,11 +174,10 @@ def init_theme(app: tk.Tk) -> None:
     )
     style.map("Data.Treeview.Heading", background=[("active", ThemePalette.SURFACE_ALT)])
 
-    style.configure(
-        "Horizontal.TSeparator",
-        background=ThemePalette.BORDER,
-    )
+    style.configure("Horizontal.TSeparator", background=ThemePalette.BORDER)
 
+
+# ---------- Data spec & file setup ----------
 DATA_SPECS = {
     "users": {"filename": "users.csv", "headers": ["username", "password", "role"], "unique": "username"},
     "tutors": {"filename": "tutors.csv", "headers": ["id", "name", "email", "subjects"], "unique": "id"},
@@ -185,7 +185,7 @@ DATA_SPECS = {
     "classes": {"filename": "classes.csv", "headers": ["id", "title", "tutor_id", "student_id", "schedule"], "unique": "id"},
 }
 
-
+# Ensure CSV files exist with headers
 for spec in DATA_SPECS.values():
     path = DATA_DIR / spec["filename"]
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,11 +205,10 @@ def ensure_directories():
 ensure_directories()
 
 
+# ---------- Utilities ----------
 def is_valid_email(value: str) -> bool:
     value = value.strip()
-    if "@" not in value:
-        return False
-    if value.count("@") != 1:
+    if "@" not in value or value.count("@") != 1:
         return False
     local, domain = value.split("@", 1)
     if not local or not domain or "." not in domain:
@@ -281,6 +280,7 @@ def schedule_sort_key(schedule: str) -> tuple[int, int, int]:
     return (day_index, hour, minute)
 
 
+# ---------- UI ----------
 class LoginFrame(ttk.Frame):
     def __init__(self, master, on_success):
         super().__init__(master, style="Background.TFrame")
@@ -421,7 +421,6 @@ class Dashboard(ttk.Frame):
                 frame.lower()
 
     def logout(self):
-        self.master.menu = None
         self.master.config(menu=None)
         self.destroy()
         self.master.show_login()
@@ -434,6 +433,7 @@ class DashboardView(ttk.Frame):
         self.grid(row=0, column=0, sticky="nsew")
         master.columnconfigure(0, weight=1)
         master.rowconfigure(0, weight=1)
+
         ttk.Label(self, text="Dashboard", style="SectionTitle.TLabel").pack(anchor=tk.W)
         ttk.Label(
             self,
@@ -777,34 +777,7 @@ class ClassesView(DataListView):
         self.student_combo.set("")
 
 
-class TutorRenApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        init_theme(self)
-        self.title(APP_TITLE)
-        self.geometry("940x560")
-        self.minsize(880, 520)
-        self.resizable(False, False)
-        self.current_user = None
-        self.show_login()
-
-    def show_login(self):
-        self.current_user = None
-        for child in self.winfo_children():
-            child.destroy()
-        self.resizable(False, False)
-        self.geometry("940x560")
-        login = LoginFrame(self, self.on_login_success)
-        login.pack(fill=tk.BOTH, expand=True)
-
-    def on_login_success(self, user):
-        self.current_user = user
-        for child in self.winfo_children():
-            child.destroy()
-        self.resizable(True, True)
-        Dashboard(self, self.current_user)
-
-
+# ---------- PDF generator ----------
 def create_schedule_pdf(filename: Path, sections: dict[str, list[str]]):
     lines: list[str] = []
     y = 760
@@ -866,10 +839,12 @@ def create_schedule_pdf(filename: Path, sections: dict[str, list[str]]):
         + b"\n%%EOF\n"
     )
 
+    filename.parent.mkdir(parents=True, exist_ok=True)
     with filename.open("wb") as fh:
         fh.write(pdf_bytes)
 
 
+# ---------- Email logging ----------
 class EmailService:
     def __init__(self, log_path: Path):
         self.log_path = log_path
@@ -900,6 +875,7 @@ class EmailService:
                         log.write(f"    {line}\n")
 
 
+# ---------- Schedule picker ----------
 class ScheduleSelector(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="Card.TFrame")
@@ -970,7 +946,35 @@ class ScheduleSelector(ttk.Frame):
 EMAIL_SERVICE = EmailService(EMAIL_LOG)
 
 
+# ---------- App ----------
+class TutorRenApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        init_theme(self)
+        self.title(APP_TITLE)
+        self.geometry("940x560")
+        self.minsize(880, 520)
+        self.resizable(False, False)
+        self.current_user = None
+        self.show_login()
+
+    def show_login(self):
+        self.current_user = None
+        for child in self.winfo_children():
+            child.destroy()
+        self.resizable(False, False)
+        self.geometry("940x560")
+        login = LoginFrame(self, self.on_login_success)
+        login.pack(fill=tk.BOTH, expand=True)
+
+    def on_login_success(self, user):
+        self.current_user = user
+        for child in self.winfo_children():
+            child.destroy()
+        self.resizable(True, True)
+        Dashboard(self, self.current_user)
+
+
 if __name__ == "__main__":
     app = TutorRenApp()
     app.mainloop()
-
