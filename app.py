@@ -15,13 +15,175 @@ DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 TIME_SLOTS = [f"{hour:02d}:00" for hour in range(8, 21)]
 
 
+# ---------- Theming ----------
+class ThemePalette:
+    BACKGROUND = "#0f172a"
+    SURFACE = "#18263c"
+    SURFACE_ALT = "#1f304d"
+    PRIMARY = "#6366f1"
+    PRIMARY_ACTIVE = "#4f46e5"
+    ACCENT = "#22d3ee"
+    TEXT = "#e2e8f0"
+    MUTED_TEXT = "#94a3b8"
+    BORDER = "#1f2737"
+    CARD_BORDER = "#223147"
+    SLOT_AVAILABLE_BG = "#134e4a"
+    SLOT_AVAILABLE_FG = "#a7f3d0"
+    SLOT_TAKEN_BG = "#4c1d95"
+    SLOT_TAKEN_FG = "#ede9fe"
+
+
+def init_theme(app: tk.Tk) -> None:
+    style = ttk.Style(app)
+    if "clam" in style.theme_names():
+        style.theme_use("clam")
+    app.configure(bg=ThemePalette.BACKGROUND)
+
+    base_font = ("Segoe UI", 11)
+    style.configure(".", font=base_font)
+
+    style.configure("TFrame", background=ThemePalette.BACKGROUND)
+    style.configure("Background.TFrame", background=ThemePalette.BACKGROUND)
+    style.configure(
+        "Card.TFrame",
+        background=ThemePalette.SURFACE,
+        borderwidth=0,
+        relief="flat",
+    )
+    style.configure("Hero.TFrame", background=ThemePalette.PRIMARY)
+
+    style.configure("TLabel", background=ThemePalette.BACKGROUND, foreground=ThemePalette.TEXT)
+    style.configure(
+        "Card.TLabel",
+        background=ThemePalette.SURFACE,
+        foreground=ThemePalette.TEXT,
+    )
+    style.configure(
+        "SectionTitle.TLabel",
+        background=ThemePalette.BACKGROUND,
+        foreground=ThemePalette.TEXT,
+        font=("Segoe UI", 20, "bold"),
+    )
+    style.configure(
+        "CardTitle.TLabel",
+        background=ThemePalette.SURFACE,
+        foreground=ThemePalette.TEXT,
+        font=("Segoe UI", 16, "bold"),
+    )
+    style.configure(
+        "HeroTitle.TLabel",
+        background=ThemePalette.PRIMARY,
+        foreground="#ffffff",
+        font=("Segoe UI", 22, "bold"),
+    )
+    style.configure(
+        "HeroSubtitle.TLabel",
+        background=ThemePalette.PRIMARY,
+        foreground="#e0e7ff",
+    )
+    style.configure(
+        "Badge.TLabel",
+        background=ThemePalette.ACCENT,
+        foreground=ThemePalette.BACKGROUND,
+        font=("Segoe UI", 10, "bold"),
+        padding=(12, 4),
+    )
+    style.configure(
+        "Muted.TLabel",
+        background=ThemePalette.BACKGROUND,
+        foreground=ThemePalette.MUTED_TEXT,
+    )
+
+    style.configure(
+        "Accent.TButton",
+        background=ThemePalette.PRIMARY,
+        foreground="#ffffff",
+        padding=(18, 10),
+        borderwidth=0,
+        focusthickness=1,
+        focuscolor=ThemePalette.PRIMARY,
+    )
+    style.map(
+        "Accent.TButton",
+        background=[("active", ThemePalette.PRIMARY_ACTIVE), ("pressed", ThemePalette.PRIMARY_ACTIVE)],
+        foreground=[("disabled", ThemePalette.MUTED_TEXT)],
+    )
+    style.configure(
+        "TButton",
+        padding=(16, 9),
+        background=ThemePalette.SURFACE_ALT,
+        foreground=ThemePalette.TEXT,
+        borderwidth=0,
+    )
+    style.map(
+        "TButton",
+        background=[("active", ThemePalette.PRIMARY_ACTIVE)],
+        foreground=[("disabled", ThemePalette.MUTED_TEXT)],
+    )
+
+    entry_settings = {
+        "fieldbackground": ThemePalette.SURFACE_ALT,
+        "foreground": ThemePalette.TEXT,
+        "background": ThemePalette.SURFACE_ALT,
+        "bordercolor": ThemePalette.CARD_BORDER,
+        "lightcolor": ThemePalette.PRIMARY,
+        "darkcolor": ThemePalette.CARD_BORDER,
+        "insertcolor": ThemePalette.TEXT,
+    }
+    style.configure("TEntry", **entry_settings)
+    style.map("TEntry", fieldbackground=[("focus", ThemePalette.SURFACE_ALT)])
+    style.configure("TCombobox", **entry_settings)
+    style.map("TCombobox", fieldbackground=[("readonly", ThemePalette.SURFACE_ALT)])
+
+    style.configure(
+        "Card.TLabelframe",
+        background=ThemePalette.SURFACE,
+        foreground=ThemePalette.TEXT,
+        borderwidth=1,
+        relief="solid",
+        bordercolor=ThemePalette.CARD_BORDER,
+    )
+    style.configure(
+        "Card.TLabelframe.Label",
+        background=ThemePalette.SURFACE,
+        foreground=ThemePalette.MUTED_TEXT,
+        font=("Segoe UI", 11, "bold"),
+    )
+
+    style.configure(
+        "Data.Treeview",
+        background=ThemePalette.SURFACE,
+        fieldbackground=ThemePalette.SURFACE,
+        foreground=ThemePalette.TEXT,
+        rowheight=28,
+        borderwidth=0,
+        relief="flat",
+    )
+    style.map(
+        "Data.Treeview",
+        background=[("selected", ThemePalette.PRIMARY)],
+        foreground=[("selected", "#ffffff")],
+    )
+    style.configure(
+        "Data.Treeview.Heading",
+        background=ThemePalette.SURFACE_ALT,
+        foreground=ThemePalette.TEXT,
+        relief="flat",
+        padding=(8, 6),
+        font=("Segoe UI", 11, "bold"),
+    )
+    style.map("Data.Treeview.Heading", background=[("active", ThemePalette.SURFACE_ALT)])
+
+    style.configure("Horizontal.TSeparator", background=ThemePalette.BORDER)
+
+
+# ---------- Data spec & file setup ----------
 DATA_SPECS = {
     "users": {"filename": "users.csv", "headers": ["username", "password", "role"], "unique": "username"},
     "tutors": {"filename": "tutors.csv", "headers": ["id", "name", "email", "subjects"], "unique": "id"},
     "students": {"filename": "students.csv", "headers": ["id", "name", "email", "year"], "unique": "id"},
     "classes": {"filename": "classes.csv", "headers": ["id", "title", "tutor_id", "student_id", "schedule"], "unique": "id"},
 }
-
 
 # Ensure CSV files exist with headers
 for spec in DATA_SPECS.values():
@@ -30,7 +192,7 @@ for spec in DATA_SPECS.values():
     if not path.exists():
         with path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
-            writer.writerow(spec["headers"]) 
+            writer.writerow(spec["headers"])
 
 
 def ensure_directories():
@@ -43,11 +205,10 @@ def ensure_directories():
 ensure_directories()
 
 
+# ---------- Utilities ----------
 def is_valid_email(value: str) -> bool:
     value = value.strip()
-    if "@" not in value:
-        return False
-    if value.count("@") != 1:
+    if "@" not in value or value.count("@") != 1:
         return False
     local, domain = value.split("@", 1)
     if not local or not domain or "." not in domain:
@@ -119,30 +280,69 @@ def schedule_sort_key(schedule: str) -> tuple[int, int, int]:
     return (day_index, hour, minute)
 
 
+# ---------- UI ----------
 class LoginFrame(ttk.Frame):
     def __init__(self, master, on_success):
-        super().__init__(master, padding=40)
+        super().__init__(master, style="Background.TFrame")
         self.on_success = on_success
+        self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
 
-        ttk.Label(self, text="TutorRen Management", font=("Helvetica", 20, "bold")).grid(
-            row=0, column=0, columnspan=2, pady=(0, 30)
+        hero = ttk.Frame(self, style="Hero.TFrame", padding=48)
+        hero.grid(row=0, column=0, sticky="nsew")
+        hero.columnconfigure(0, weight=1)
+        ttk.Label(hero, text="TutorRen", style="HeroTitle.TLabel").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(
+            hero,
+            text="Effortlessly orchestrate tutors, students, and schedules.",
+            style="HeroSubtitle.TLabel",
+            wraplength=260,
+        ).grid(row=1, column=0, sticky=tk.W, pady=(12, 0))
+        ttk.Label(hero, text="Daily reminders keep sessions on track.", style="HeroSubtitle.TLabel").grid(
+            row=2, column=0, sticky=tk.W, pady=(24, 0)
+        )
+        ttk.Label(hero, text="CSV backups you can trust", style="Badge.TLabel").grid(
+            row=3, column=0, sticky=tk.W, pady=(40, 0)
         )
 
-        ttk.Label(self, text="Username:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
+        card = ttk.Frame(self, style="Card.TFrame", padding=40)
+        card.grid(row=0, column=1, sticky="nsew", padx=60, pady=60)
+        card.columnconfigure(0, weight=1)
+
+        ttk.Label(card, text="Sign in", style="CardTitle.TLabel").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(
+            card,
+            text="Enter your credentials to access TutorRen.",
+            style="Card.TLabel",
+        ).grid(row=1, column=0, sticky=tk.W, pady=(6, 18))
+
+        ttk.Label(card, text="Username", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W)
         self.username_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.username_var).grid(row=1, column=1, sticky=tk.EW)
+        username_entry = ttk.Entry(card, textvariable=self.username_var)
+        username_entry.grid(row=3, column=0, sticky=tk.EW, pady=(6, 16))
 
-        ttk.Label(self, text="Password:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10), pady=(10, 0))
+        ttk.Label(card, text="Password", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W)
         self.password_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.password_var, show="*").grid(
-            row=2, column=1, sticky=tk.EW, pady=(10, 0)
-        )
+        password_entry = ttk.Entry(card, textvariable=self.password_var, show="*")
+        password_entry.grid(row=5, column=0, sticky=tk.EW, pady=(6, 24))
 
-        login_btn = ttk.Button(self, text="Login", command=self.attempt_login)
-        login_btn.grid(row=3, column=0, columnspan=2, pady=(25, 0), sticky=tk.EW)
+        login_btn = ttk.Button(card, text="Sign in", style="Accent.TButton", command=self.attempt_login)
+        login_btn.grid(row=6, column=0, sticky=tk.EW)
 
-        self.bind_all("<Return>", lambda _event: self.attempt_login())
+        ttk.Label(
+            card,
+            text="Managers can create accounts once inside the app.",
+            style="Card.TLabel",
+        ).grid(row=7, column=0, sticky=tk.W, pady=(20, 0))
+
+        self._return_binding = None
+        self._return_binding = self.master.bind("<Return>", lambda _event: self.attempt_login())
+        username_entry.focus_set()
+
+    def destroy(self):
+        if self._return_binding:
+            self.master.unbind("<Return>")
+        super().destroy()
 
     def attempt_login(self):
         username = self.username_var.get().strip()
@@ -160,7 +360,7 @@ class LoginFrame(ttk.Frame):
 
 class Dashboard(ttk.Frame):
     def __init__(self, master, current_user):
-        super().__init__(master)
+        super().__init__(master, style="Background.TFrame")
         self.current_user = current_user
         self.pack(fill=tk.BOTH, expand=True)
         self.create_widgets()
@@ -186,15 +386,20 @@ class Dashboard(ttk.Frame):
         account_menu.add_command(label="Logout", command=self.logout)
         self.menu_bar.add_cascade(label="Account", menu=account_menu)
 
-        header = ttk.Frame(self, padding=20)
+        header = ttk.Frame(self, style="Hero.TFrame", padding=(28, 18))
         header.pack(fill=tk.X)
         ttk.Label(
             header,
-            text=f"Welcome, {self.current_user['username']} ({self.current_user['role']})",
-            font=("Helvetica", 16, "bold"),
-        ).pack(side=tk.LEFT)
+            text=f"Welcome back, {self.current_user['username']}",
+            style="HeroTitle.TLabel",
+        ).pack(anchor=tk.W)
+        ttk.Label(
+            header,
+            text=f"You are signed in as {self.current_user['role']}. Manage your schedules below.",
+            style="HeroSubtitle.TLabel",
+        ).pack(anchor=tk.W, pady=(6, 0))
 
-        self.content = ttk.Frame(self)
+        self.content = ttk.Frame(self, style="Background.TFrame")
         self.content.pack(fill=tk.BOTH, expand=True)
 
         self.views = {
@@ -216,7 +421,6 @@ class Dashboard(ttk.Frame):
                 frame.lower()
 
     def logout(self):
-        self.master.menu = None
         self.master.config(menu=None)
         self.destroy()
         self.master.show_login()
@@ -224,35 +428,42 @@ class Dashboard(ttk.Frame):
 
 class DashboardView(ttk.Frame):
     def __init__(self, master, current_user):
-        super().__init__(master, padding=30)
+        super().__init__(master, padding=30, style="Background.TFrame")
         self.current_user = current_user
         self.grid(row=0, column=0, sticky="nsew")
         master.columnconfigure(0, weight=1)
         master.rowconfigure(0, weight=1)
-        ttk.Label(self, text="Dashboard", font=("Helvetica", 18, "bold")).pack(anchor=tk.W)
+
+        ttk.Label(self, text="Dashboard", style="SectionTitle.TLabel").pack(anchor=tk.W)
         ttk.Label(
             self,
-            text="Use the Navigate menu to manage tutors, students, and classes. This overview summarizes current records.",
-            wraplength=600,
-        ).pack(anchor=tk.W, pady=(10, 20))
+            text="Access quick actions and high-level statistics for your tutoring center.",
+            style="Muted.TLabel",
+            wraplength=640,
+        ).pack(anchor=tk.W, pady=(8, 26))
 
-        controls = ttk.Frame(self)
-        controls.pack(anchor=tk.W, pady=(0, 20))
+        controls = ttk.Frame(self, style="Background.TFrame")
+        controls.pack(anchor=tk.W, pady=(0, 24))
         ttk.Button(
             controls,
             text="Generate Weekly Schedule PDFs",
+            style="Accent.TButton",
             command=self.generate_schedule_pdfs,
-        ).grid(row=0, column=0, padx=(0, 10))
+        ).grid(row=0, column=0, padx=(0, 12))
         ttk.Button(
             controls,
             text="Send Today's Tutor Reminders",
             command=self.send_tutor_reminders,
         ).grid(row=0, column=1)
 
-        self.stats = ttk.Treeview(self, columns=("type", "count"), show="headings", height=5)
+        stats_card = ttk.Frame(self, style="Card.TFrame", padding=20)
+        stats_card.pack(fill=tk.X)
+        ttk.Label(stats_card, text="At a glance", style="CardTitle.TLabel").pack(anchor=tk.W, pady=(0, 12))
+
+        self.stats = ttk.Treeview(stats_card, columns=("type", "count"), show="headings", height=6, style="Data.Treeview")
         self.stats.heading("type", text="Data Type")
         self.stats.heading("count", text="Count")
-        self.stats.column("type", width=200)
+        self.stats.column("type", width=240)
         self.stats.column("count", width=80, anchor=tk.CENTER)
         self.stats.pack(fill=tk.X)
         self.refresh()
@@ -306,7 +517,7 @@ class DataListView(ttk.Frame):
     add_fields: tuple[tuple[str, str], ...] = ()
 
     def __init__(self, master, current_user):
-        super().__init__(master, padding=20)
+        super().__init__(master, padding=24, style="Background.TFrame")
         self.current_user = current_user
         self.grid(row=0, column=0, sticky="nsew")
         master.columnconfigure(0, weight=1)
@@ -314,29 +525,52 @@ class DataListView(ttk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        title = ttk.Label(self, text=self.dataset.title(), font=("Helvetica", 18, "bold"))
+        title = ttk.Label(self, text=self.dataset.title(), style="SectionTitle.TLabel")
         title.pack(anchor=tk.W)
 
-        self.tree = ttk.Treeview(self, columns=self.columns, show="headings", height=12)
+        list_card = ttk.Frame(self, style="Card.TFrame", padding=20)
+        list_card.pack(fill=tk.BOTH, expand=True, pady=(18, 16))
+        list_card.columnconfigure(0, weight=1)
+        list_card.rowconfigure(0, weight=1)
+
+        self.tree = ttk.Treeview(list_card, columns=self.columns, show="headings", style="Data.Treeview")
         for col, label in zip(self.columns, self.columns):
             self.tree.heading(col, text=label.replace("_", " ").title())
             self.tree.column(col, anchor=tk.W, width=150)
-        self.tree.pack(fill=tk.BOTH, expand=True, pady=(15, 10))
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.tree.tag_configure("even", background=ThemePalette.SURFACE)
+        self.tree.tag_configure("odd", background=ThemePalette.SURFACE_ALT)
 
-        self.form_frame = ttk.LabelFrame(self, text=f"Add {self.dataset[:-1].title()}")
-        self.form_frame.pack(fill=tk.X, pady=(10, 0))
+        tree_scroll = ttk.Scrollbar(list_card, orient=tk.VERTICAL, command=self.tree.yview)
+        tree_scroll.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=tree_scroll.set)
+
+        self.form_frame = ttk.LabelFrame(
+            self,
+            text=f"Add {self.dataset[:-1].title()}",
+            style="Card.TLabelframe",
+            padding=20,
+        )
+        self.form_frame.pack(fill=tk.X, pady=(0, 16))
 
         self.form_vars = {}
         self.form_entries: dict[str, ttk.Entry] = {}
         for idx, (field, label) in enumerate(self.add_fields):
-            ttk.Label(self.form_frame, text=label).grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
+            ttk.Label(self.form_frame, text=label, style="Card.TLabel").grid(
+                row=idx, column=0, sticky=tk.W, padx=5, pady=5
+            )
             var = tk.StringVar()
             entry = ttk.Entry(self.form_frame, textvariable=var, width=40)
             entry.grid(row=idx, column=1, sticky=tk.W, padx=5, pady=5)
             self.form_vars[field] = var
             self.form_entries[field] = entry
 
-        self.add_button = ttk.Button(self.form_frame, text=f"Add {self.dataset[:-1].title()}", command=self.add_record)
+        self.add_button = ttk.Button(
+            self.form_frame,
+            text=f"Add {self.dataset[:-1].title()}",
+            style="Accent.TButton",
+            command=self.add_record,
+        )
         self.add_button.grid(row=len(self.add_fields), column=0, columnspan=2, pady=10)
 
         if self.dataset == "classes":
@@ -347,9 +581,10 @@ class DataListView(ttk.Frame):
     def refresh(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
-        for record in load_records(self.dataset):
+        for idx, record in enumerate(load_records(self.dataset)):
             values = [record.get(col, "") for col in self.columns]
-            self.tree.insert("", tk.END, values=values)
+            tag = "even" if idx % 2 == 0 else "odd"
+            self.tree.insert("", tk.END, values=values, tags=(tag,))
         if self.dataset == "classes" and self.tutor_combo and self.student_combo:
             tutors = load_records("tutors")
             students = load_records("students")
@@ -372,7 +607,7 @@ class UsersView(DataListView):
         super().create_widgets()
         if "password" in self.form_entries:
             self.form_entries["password"].configure(show="*")
-        ttk.Label(self.form_frame, text="Role").grid(
+        ttk.Label(self.form_frame, text="Role", style="Card.TLabel").grid(
             row=len(self.add_fields), column=0, sticky=tk.W, padx=5, pady=5
         )
         self.role_var = tk.StringVar(value=self.role_options[0])
@@ -474,15 +709,21 @@ class ClassesView(DataListView):
         super().create_widgets()
         start_row = len(self.add_fields)
 
-        ttk.Label(self.form_frame, text="Tutor").grid(row=start_row, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.form_frame, text="Tutor", style="Card.TLabel").grid(
+            row=start_row, column=0, sticky=tk.W, padx=5, pady=5
+        )
         self.tutor_combo = ttk.Combobox(self.form_frame, state="readonly", width=38)
         self.tutor_combo.grid(row=start_row, column=1, sticky=tk.W, padx=5, pady=5)
 
-        ttk.Label(self.form_frame, text="Student").grid(row=start_row + 1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.form_frame, text="Student", style="Card.TLabel").grid(
+            row=start_row + 1, column=0, sticky=tk.W, padx=5, pady=5
+        )
         self.student_combo = ttk.Combobox(self.form_frame, state="readonly", width=38)
         self.student_combo.grid(row=start_row + 1, column=1, sticky=tk.W, padx=5, pady=5)
 
-        ttk.Label(self.form_frame, text="Schedule").grid(row=start_row + 2, column=0, sticky=tk.NW, padx=5, pady=5)
+        ttk.Label(self.form_frame, text="Schedule", style="Card.TLabel").grid(
+            row=start_row + 2, column=0, sticky=tk.NW, padx=5, pady=5
+        )
         self.schedule_selector = ScheduleSelector(self.form_frame)
         self.schedule_selector.grid(row=start_row + 2, column=1, sticky=tk.W, padx=5, pady=5)
 
@@ -536,30 +777,7 @@ class ClassesView(DataListView):
         self.student_combo.set("")
 
 
-class TutorRenApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title(APP_TITLE)
-        self.geometry("520x360")
-        self.resizable(False, False)
-        self.current_user = None
-        self.show_login()
-
-    def show_login(self):
-        self.current_user = None
-        for child in self.winfo_children():
-            child.destroy()
-        login = LoginFrame(self, self.on_login_success)
-        login.pack(fill=tk.BOTH, expand=True)
-
-    def on_login_success(self, user):
-        self.current_user = user
-        for child in self.winfo_children():
-            child.destroy()
-        self.resizable(True, True)
-        Dashboard(self, self.current_user)
-
-
+# ---------- PDF generator ----------
 def create_schedule_pdf(filename: Path, sections: dict[str, list[str]]):
     lines: list[str] = []
     y = 760
@@ -621,10 +839,12 @@ def create_schedule_pdf(filename: Path, sections: dict[str, list[str]]):
         + b"\n%%EOF\n"
     )
 
+    filename.parent.mkdir(parents=True, exist_ok=True)
     with filename.open("wb") as fh:
         fh.write(pdf_bytes)
 
 
+# ---------- Email logging ----------
 class EmailService:
     def __init__(self, log_path: Path):
         self.log_path = log_path
@@ -655,16 +875,30 @@ class EmailService:
                         log.write(f"    {line}\n")
 
 
+# ---------- Schedule picker ----------
 class ScheduleSelector(ttk.Frame):
     def __init__(self, master):
-        super().__init__(master)
+        super().__init__(master, style="Card.TFrame")
         self.day_var = tk.StringVar(value=DAYS[0])
         self.occupied_by_day: dict[str, set[str]] = {day: set() for day in DAYS}
-        ttk.Label(self, text="Day").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(self, text="Day", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W)
         self.day_combo = ttk.Combobox(self, textvariable=self.day_var, values=DAYS, state="readonly", width=10)
         self.day_combo.grid(row=1, column=0, sticky=tk.W)
-        ttk.Label(self, text="Time Slot").grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
-        self.times_list = tk.Listbox(self, height=len(TIME_SLOTS), exportselection=False, width=16)
+        ttk.Label(self, text="Time Slot", style="Card.TLabel").grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        self.times_list = tk.Listbox(
+            self,
+            height=len(TIME_SLOTS),
+            exportselection=False,
+            width=16,
+            bg=ThemePalette.SURFACE_ALT,
+            fg=ThemePalette.TEXT,
+            selectbackground=ThemePalette.PRIMARY,
+            selectforeground="#ffffff",
+            relief=tk.FLAT,
+            borderwidth=0,
+            highlightthickness=0,
+            activestyle="none",
+        )
         self.times_list.grid(row=1, column=1, sticky=tk.NW, padx=(10, 0))
         self.current_times: list[str] = []
         self.day_var.trace_add("write", lambda *_: self.render_times())
@@ -687,9 +921,15 @@ class ScheduleSelector(ttk.Frame):
             self.current_times.append(slot)
             self.times_list.insert(tk.END, slot)
             if slot in taken:
-                self.times_list.itemconfig(idx, {"bg": "#f9d0d0", "fg": "#555555"})
+                self.times_list.itemconfig(
+                    idx,
+                    {"bg": ThemePalette.SLOT_TAKEN_BG, "fg": ThemePalette.SLOT_TAKEN_FG},
+                )
             else:
-                self.times_list.itemconfig(idx, {"bg": "#e7ffe7"})
+                self.times_list.itemconfig(
+                    idx,
+                    {"bg": ThemePalette.SLOT_AVAILABLE_BG, "fg": ThemePalette.SLOT_AVAILABLE_FG},
+                )
 
     def get_schedule(self) -> str:
         if not self.times_list.curselection():
@@ -704,6 +944,35 @@ class ScheduleSelector(ttk.Frame):
 
 
 EMAIL_SERVICE = EmailService(EMAIL_LOG)
+
+
+# ---------- App ----------
+class TutorRenApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        init_theme(self)
+        self.title(APP_TITLE)
+        self.geometry("940x560")
+        self.minsize(880, 520)
+        self.resizable(False, False)
+        self.current_user = None
+        self.show_login()
+
+    def show_login(self):
+        self.current_user = None
+        for child in self.winfo_children():
+            child.destroy()
+        self.resizable(False, False)
+        self.geometry("940x560")
+        login = LoginFrame(self, self.on_login_success)
+        login.pack(fill=tk.BOTH, expand=True)
+
+    def on_login_success(self, user):
+        self.current_user = user
+        for child in self.winfo_children():
+            child.destroy()
+        self.resizable(True, True)
+        Dashboard(self, self.current_user)
 
 
 if __name__ == "__main__":
