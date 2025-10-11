@@ -218,6 +218,35 @@ def replace_records(name, rows):
             writer.writerow(row)
 
 
+def update_record(name, key, updated_record):
+    spec = DATA_SPECS[name]
+    unique_field = spec["unique"]
+    records = load_records(name)
+    if updated_record.get(unique_field) != key:
+        for row in records:
+            if row.get(unique_field) == updated_record.get(unique_field):
+                raise ValueError(f"{unique_field.title()} already exists.")
+    replaced = False
+    for idx, row in enumerate(records):
+        if row.get(unique_field) == key:
+            records[idx] = updated_record
+            replaced = True
+            break
+    if not replaced:
+        raise ValueError(f"Record with {unique_field} {key} was not found.")
+    replace_records(name, records)
+
+
+def delete_record(name, key):
+    spec = DATA_SPECS[name]
+    unique_field = spec["unique"]
+    records = load_records(name)
+    remaining = [row for row in records if row.get(unique_field) != key]
+    if len(remaining) == len(records):
+        raise ValueError(f"Record with {unique_field} {key} was not found.")
+    replace_records(name, remaining)
+
+
 def generate_id(prefix, records):
     max_value = 0
     for row in records:
@@ -464,14 +493,20 @@ class DataListView(ttk.Frame):
     columns: tuple[str, ...] = ()
     dataset: str = ""
     add_fields: tuple[tuple[str, str], ...] = ()
+    singular: str = ""
 
     def __init__(self, master, current_user):
         super().__init__(master, padding=24, style="Background.TFrame")
         self.current_user = current_user
+        self.unique_field = DATA_SPECS[self.dataset]["unique"]
+        self.editing_key: str | None = None
         self.grid(row=0, column=0, sticky="nsew")
         master.columnconfigure(0, weight=1)
         master.rowconfigure(0, weight=1)
         self.create_widgets()
+
+    def get_entity_label(self) -> str:
+        return self.singular or self.dataset.title()
 
     def create_widgets(self):
         self.columnconfigure(0, weight=1)
@@ -504,9 +539,23 @@ class DataListView(ttk.Frame):
         tree_scroll.grid(row=0, column=1, sticky="ns", padx=(12, 0))
         self.tree.configure(yscrollcommand=tree_scroll.set)
 
+        # Actions (edit/delete)
+        actions = ttk.Frame(list_card, style="Card.TFrame")
+        actions.grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(12, 0))
+        actions.columnconfigure(0, weight=0)
+        actions.columnconfigure(1, weight=0)
+        actions.columnconfigure(2, weight=0)
+
+        self.edit_button = ttk.Button(actions, text="Edit Selected", command=self.start_edit)
+        self.edit_button.grid(row=0, column=0, padx=(0, 10))
+        self.delete_button = ttk.Button(actions, text="Delete Selected", command=self.delete_selected)
+        self.delete_button.grid(row=0, column=1, padx=(0, 10))
+        self.cancel_button = ttk.Button(actions, text="Cancel Edit", command=self.cancel_edit, state="disabled")
+        self.cancel_button.grid(row=0, column=2)
+
         self.form_frame = ttk.LabelFrame(
             list_card,
-            text=f"Add {self.dataset[:-1].title()}",
+            text=f"Add {self.get_entity_label()}",
             style="Card.TLabelframe",
             padding=20,
         )
@@ -522,13 +571,35 @@ class DataListView(ttk.Frame):
             self.form_vars[field] = var
             self.form_entries[field] = entry
 
-        self.add_button = ttk.Button(self.form_frame, text=f"Add {self.dataset[:-1].title()}", style="Accent.TButton", command=self.add_record)
-        self.add_button.grid(row=len(self.add_fields), column=0, columnspan=2, pady=10)
+        self.submit_button = ttk.Button(
+            self.form_frame,
+            text=f"Add {self.get_entity_label()}",
+            style="Accent.TButton",
+            command=self.on_submit,
+        )
+        self.submit_button.grid(row=len(self.add_fields), column=0, columnspan=2, pady=10)
 
         if self.dataset == "classes":
-            # Placeholders for combobox attributes populated in subclass implementation
             self.tutor_combo = None
             self.student_combo = None
+
+    def on_submit(self):
+        if self.editing_key:
+            self.save_changes()
+        else:
+            self.add_record()
+
+    def set_mode(self, mode: str):
+        entity = self.get_entity_label()
+        if mode == "edit":
+            self.cancel_button.configure(state="normal")
+            self.submit_button.configure(text="Save Changes")
+            self.form_frame.configure(text=f"Edit {entity}")
+        else:
+            self.editing_key = None
+            self.cancel_button.configure(state="disabled")
+            self.submit_button.configure(text=f"Add {entity}")
+            self.form_frame.configure(text=f"Add {entity}")
 
     def refresh(self):
         for row in self.tree.get_children():
@@ -545,6 +616,71 @@ class DataListView(ttk.Frame):
             self.tutor_combo.configure(values=tutor_options)
             self.student_combo.configure(values=student_options)
 
+    def get_selected_key(self) -> str:
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showinfo("Select a row", "Please choose a record first.")
+            return ""
+        values = self.tree.item(selection[0], "values")
+        try:
+            index = self.columns.index(self.unique_field)
+        except ValueError:
+            index = 0
+        return values[index]
+
+    def start_edit(self):
+        key = self.get_selected_key()
+        if not key:
+            return
+        records = load_records(self.dataset)
+        record = next((row for row in records if row.get(self.unique_field) == key), None)
+        if not record:
+            messagebox.showerror("Not found", "Could not load the selected record.")
+            return
+        self.editing_key = key
+        self.populate_form(record)
+        self.set_mode("edit")
+
+    def populate_form(self, record: dict[str, str]):
+        for field, var in self.form_vars.items():
+            var.set(record.get(field, ""))
+
+    def cancel_edit(self):
+        self.reset_form()
+
+    def reset_form(self):
+        for var in self.form_vars.values():
+            var.set("")
+        self.set_mode("add")
+
+    def save_changes(self):
+        if not self.editing_key:
+            return
+        if self.perform_update(self.editing_key):
+            self.refresh()
+            self.reset_form()
+
+    def perform_update(self, key: str) -> bool:
+        raise NotImplementedError
+
+    def delete_selected(self):
+        key = self.get_selected_key()
+        if not key:
+            return
+        if messagebox.askyesno("Confirm delete", "Are you sure you want to remove this record?"):
+            try:
+                delete_record(self.dataset, key)
+            except ValueError as exc:
+                messagebox.showerror("Could not delete", str(exc))
+                return
+            if self.editing_key == key:
+                self.reset_form()
+            self.refresh()
+            self.after_delete()
+
+    def after_delete(self):
+        return
+
     def add_record(self):
         raise NotImplementedError
 
@@ -553,6 +689,7 @@ class UsersView(DataListView):
     columns = ("username", "role")
     dataset = "users"
     add_fields = (("username", "Username"), ("password", "Password"))
+    singular = "User"
     role_options = ("Manager", "Tutor", "Employee")
 
     def create_widgets(self):
@@ -563,15 +700,18 @@ class UsersView(DataListView):
         self.role_var = tk.StringVar(value=self.role_options[0])
         self.role_combo = ttk.Combobox(self.form_frame, state="readonly", values=self.role_options, textvariable=self.role_var, width=28)
         self.role_combo.grid(row=len(self.add_fields), column=1, sticky=tk.W, padx=5, pady=5)
-        self.add_button.grid_configure(row=len(self.add_fields) + 1)
+        self.submit_button.grid_configure(row=len(self.add_fields) + 1)
         if self.current_user.get("role") != "Manager":
             self.disable_form()
 
     def disable_form(self):
         for entry in self.form_entries.values():
             entry.configure(state="disabled")
-        self.add_button.configure(state="disabled")
+        self.submit_button.configure(state="disabled")
         self.role_combo.configure(state="disabled")
+        self.edit_button.configure(state="disabled")
+        self.delete_button.configure(state="disabled")
+        self.cancel_button.configure(state="disabled")
 
     def refresh(self):
         super().refresh()
@@ -595,15 +735,52 @@ class UsersView(DataListView):
             messagebox.showerror("Could not add user", str(exc))
             return
         self.refresh()
-        for var in self.form_vars.values():
-            var.set("")
+        self.reset_form()
+
+    def populate_form(self, record: dict[str, str]):
+        super().populate_form(record)
+        self.role_var.set(record.get("role", self.role_options[0]))
+
+    def reset_form(self):
+        super().reset_form()
         self.role_var.set(self.role_options[0])
+
+    def perform_update(self, key: str) -> bool:
+        if self.current_user.get("role") != "Manager":
+            messagebox.showerror("Permission denied", "Only managers can edit users.")
+            return False
+        username = self.form_vars["username"].get().strip()
+        password = self.form_vars["password"].get().strip()
+        role = self.role_var.get()
+        if not username or not password:
+            messagebox.showwarning("Missing data", "Username and password are required.")
+            return False
+        record = {"username": username, "password": password, "role": role}
+        try:
+            update_record("users", key, record)
+        except ValueError as exc:
+            messagebox.showerror("Could not update user", str(exc))
+            return False
+        return True
+
+    def start_edit(self):
+        if self.current_user.get("role") != "Manager":
+            messagebox.showerror("Permission denied", "Only managers can edit users.")
+            return
+        super().start_edit()
+
+    def delete_selected(self):
+        if self.current_user.get("role") != "Manager":
+            messagebox.showerror("Permission denied", "Only managers can delete users.")
+            return
+        super().delete_selected()
 
 
 class TutorsView(DataListView):
     columns = ("id", "name", "email", "subjects")
     dataset = "tutors"
     add_fields = (("name", "Name"), ("email", "Email"), ("subjects", "Subjects (comma separated)"))
+    singular = "Tutor"
 
     def add_record(self):
         name = self.form_vars["name"].get().strip()
@@ -620,14 +797,42 @@ class TutorsView(DataListView):
         record = {"id": new_id, "name": name, "email": email, "subjects": subjects.replace(",", ";")}
         append_record("tutors", record)
         self.refresh()
-        for var in self.form_vars.values():
-            var.set("")
+        self.reset_form()
+
+    def populate_form(self, record: dict[str, str]):
+        super().populate_form(record)
+        if "subjects" in self.form_vars:
+            self.form_vars["subjects"].set(record.get("subjects", "").replace(";", ", "))
+
+    def perform_update(self, key: str) -> bool:
+        name = self.form_vars["name"].get().strip()
+        email = self.form_vars["email"].get().strip()
+        subjects = self.form_vars["subjects"].get().strip()
+        if not name or not email:
+            messagebox.showwarning("Missing data", "Name and email are required.")
+            return False
+        if not is_valid_email(email):
+            messagebox.showerror("Invalid email", "Please enter a valid email address.")
+            return False
+        record = {
+            "id": key,
+            "name": name,
+            "email": email,
+            "subjects": subjects.replace(",", ";"),
+        }
+        try:
+            update_record("tutors", key, record)
+        except ValueError as exc:
+            messagebox.showerror("Could not update tutor", str(exc))
+            return False
+        return True
 
 
 class StudentsView(DataListView):
     columns = ("id", "name", "email", "year")
     dataset = "students"
     add_fields = (("name", "Name"), ("email", "Email"), ("year", "Year Level"))
+    singular = "Student"
 
     def add_record(self):
         name = self.form_vars["name"].get().strip()
@@ -644,14 +849,32 @@ class StudentsView(DataListView):
         record = {"id": new_id, "name": name, "email": email, "year": year}
         append_record("students", record)
         self.refresh()
-        for var in self.form_vars.values():
-            var.set("")
+        self.reset_form()
+
+    def perform_update(self, key: str) -> bool:
+        name = self.form_vars["name"].get().strip()
+        email = self.form_vars["email"].get().strip()
+        year = self.form_vars["year"].get().strip()
+        if not name or not email or not year:
+            messagebox.showwarning("Missing data", "All fields are required.")
+            return False
+        if not is_valid_email(email):
+            messagebox.showerror("Invalid email", "Please enter a valid email address.")
+            return False
+        record = {"id": key, "name": name, "email": email, "year": year}
+        try:
+            update_record("students", key, record)
+        except ValueError as exc:
+            messagebox.showerror("Could not update student", str(exc))
+            return False
+        return True
 
 
 class ClassesView(DataListView):
     columns = ("id", "title", "tutor_id", "student_id", "schedule")
     dataset = "classes"
     add_fields = (("title", "Class Title"),)
+    singular = "Class"
 
     def create_widgets(self):
         super().create_widgets()
@@ -669,7 +892,7 @@ class ClassesView(DataListView):
         self.schedule_selector = ScheduleSelector(self.form_frame)
         self.schedule_selector.grid(row=start_row + 2, column=1, sticky=tk.W, padx=5, pady=5)
 
-        self.add_button.grid_configure(row=start_row + 3, columnspan=2)
+        self.submit_button.grid_configure(row=start_row + 3, columnspan=2)
 
     def refresh(self):
         super().refresh()
@@ -699,13 +922,75 @@ class ClassesView(DataListView):
                 return
 
         new_id = generate_id("C", classes)
-        record = {"id": new_id, "title": title, "tutor_id": tutor_id, "student_id": student_id, "schedule": schedule}
+        record = {
+            "id": new_id,
+            "title": title,
+            "tutor_id": tutor_id,
+            "student_id": student_id,
+            "schedule": schedule,
+        }
         append_record("classes", record)
         self.refresh()
-        for var in self.form_vars.values():
-            var.set("")
-        self.tutor_combo.set("")
-        self.student_combo.set("")
+        self.reset_form()
+
+    def populate_form(self, record: dict[str, str]):
+        super().populate_form(record)
+        tutors = {row["id"]: row.get("name", row["id"]) for row in load_records("tutors")}
+        students = {row["id"]: row.get("name", row["id"]) for row in load_records("students")}
+        tutor_value = record.get("tutor_id", "")
+        student_value = record.get("student_id", "")
+        tutor_display = f"{tutor_value} — {tutors.get(tutor_value, tutor_value)}" if tutor_value else ""
+        student_display = f"{student_value} — {students.get(student_value, student_value)}" if student_value else ""
+        self.tutor_combo.set(tutor_display)
+        self.student_combo.set(student_display)
+        schedule = record.get("schedule", "")
+        self.schedule_selector.allow_schedule(schedule)
+        self.schedule_selector.refresh()
+        self.schedule_selector.set_schedule(schedule)
+
+    def reset_form(self):
+        super().reset_form()
+        if self.tutor_combo:
+            self.tutor_combo.set("")
+        if self.student_combo:
+            self.student_combo.set("")
+        if hasattr(self, "schedule_selector"):
+            self.schedule_selector.allow_schedule("")
+            self.schedule_selector.clear_selection()
+            self.schedule_selector.refresh()
+
+    def perform_update(self, key: str) -> bool:
+        title = self.form_vars["title"].get().strip()
+        tutor_value = self.tutor_combo.get()
+        student_value = self.student_combo.get()
+        if not title or not tutor_value or not student_value:
+            messagebox.showwarning("Missing data", "Please complete all fields.")
+            return False
+        schedule = self.schedule_selector.get_schedule()
+        if not schedule:
+            return False
+        tutor_id = tutor_value.split(" — ")[0]
+        student_id = student_value.split(" — ")[0]
+        classes = load_records("classes")
+        for lesson in classes:
+            if lesson["id"] == key:
+                continue
+            if lesson["schedule"] == schedule and (lesson["tutor_id"] == tutor_id or lesson["student_id"] == student_id):
+                messagebox.showerror("Schedule conflict", "The selected tutor or student already has a class at this time.")
+                return False
+        record = {
+            "id": key,
+            "title": title,
+            "tutor_id": tutor_id,
+            "student_id": student_id,
+            "schedule": schedule,
+        }
+        try:
+            update_record("classes", key, record)
+        except ValueError as exc:
+            messagebox.showerror("Could not update class", str(exc))
+            return False
+        return True
 
 
 # ---------- PDF generator ----------
@@ -799,6 +1084,8 @@ class ScheduleSelector(ttk.Frame):
         super().__init__(master, style="Card.TFrame")
         self.day_var = tk.StringVar(value=DAYS[0])
         self.occupied_by_day: dict[str, set[str]] = {day: set() for day in DAYS}
+        self._allowed_schedule: str = ""
+        self._selected: tuple[str, str] | None = None
         ttk.Label(self, text="Day", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W)
         self.day_combo = ttk.Combobox(self, textvariable=self.day_var, values=DAYS, state="readonly", width=10)
         self.day_combo.grid(row=1, column=0, sticky=tk.W)
@@ -828,6 +1115,10 @@ class ScheduleSelector(ttk.Frame):
             day, _, time = lesson.get("schedule", "   ").partition(" ")
             if day in self.occupied_by_day and time:
                 self.occupied_by_day[day].add(time)
+        if self._allowed_schedule:
+            day, time = self._split_schedule(self._allowed_schedule)
+            if day in self.occupied_by_day and time:
+                self.occupied_by_day[day].discard(time)
         self.render_times()
 
     def render_times(self):
@@ -842,6 +1133,7 @@ class ScheduleSelector(ttk.Frame):
                 self.times_list.itemconfig(idx, {"bg": ThemePalette.SLOT_TAKEN_BG, "fg": ThemePalette.SLOT_TAKEN_FG})
             else:
                 self.times_list.itemconfig(idx, {"bg": ThemePalette.SLOT_AVAILABLE_BG, "fg": ThemePalette.SLOT_AVAILABLE_FG})
+        self._apply_selection(day)
 
     def get_schedule(self) -> str:
         if not self.times_list.curselection():
@@ -852,7 +1144,43 @@ class ScheduleSelector(ttk.Frame):
         if time_value in self.occupied_by_day.get(day, set()):
             messagebox.showerror("Time unavailable", "The selected time slot is already booked.")
             return ""
+        self._selected = (day, time_value)
         return f"{day} {time_value}"
+
+    def allow_schedule(self, schedule: str):
+        self._allowed_schedule = schedule or ""
+
+    def set_schedule(self, schedule: str):
+        if not schedule:
+            self.clear_selection()
+            return
+        day, time = self._split_schedule(schedule)
+        if day not in DAYS or not time:
+            self.clear_selection()
+            return
+        self._selected = (day, time)
+        if self.day_var.get() != day:
+            self.day_var.set(day)
+        else:
+            self.render_times()
+
+    def clear_selection(self):
+        self._selected = None
+        self.times_list.selection_clear(0, tk.END)
+
+    def _split_schedule(self, schedule: str) -> tuple[str, str]:
+        day, _, time = schedule.partition(" ")
+        return day, time
+
+    def _apply_selection(self, day: str):
+        self.times_list.selection_clear(0, tk.END)
+        if self._selected and self._selected[0] == day:
+            time_value = self._selected[1]
+            for idx, slot in enumerate(self.current_times):
+                if slot == time_value:
+                    self.times_list.selection_set(idx)
+                    self.times_list.see(idx)
+                    break
 
 
 EMAIL_SERVICE = EmailService(EMAIL_LOG)
