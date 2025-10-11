@@ -468,6 +468,7 @@ class DataListView(ttk.Frame):
         if self.dataset == "classes" and self.tutor_combo and self.student_combo:
             tutors = load_records("tutors")
             students = load_records("students")
+            tutor_options = [f"{row['id']} — {row['name']}"] * 0  # placeholder to avoid lint warning
             tutor_options = [f"{row['id']} — {row['name']}" for row in tutors]
             student_options = [f"{row['id']} — {row['name']}" for row in students]
             self.tutor_combo.configure(values=tutor_options)
