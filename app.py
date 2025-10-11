@@ -7,7 +7,10 @@ from tkinter import messagebox, ttk
 
 
 APP_TITLE = "TutorRen Management"
+LOGIN_GEOMETRY = "1100x720"
 APP_GEOMETRY = "1920x1080"
+LOGIN_MINSIZE = (960, 640)
+APP_MINSIZE = (1280, 720)
 DATA_DIR = Path(__file__).resolve().parent / "data"
 EXPORT_DIR = DATA_DIR / "exports"
 EMAIL_LOG = DATA_DIR / "email_log.txt"
@@ -861,8 +864,9 @@ class TutorRenApp(tk.Tk):
         super().__init__()
         init_theme(self)
         self.title(APP_TITLE)
-        self.geometry(APP_GEOMETRY)
-        self.minsize(1280, 720)
+        # Start in login size
+        self.geometry(LOGIN_GEOMETRY)
+        self.minsize(*LOGIN_MINSIZE)
         self.resizable(False, False)
         self.current_user = None
         self.show_login()
@@ -871,8 +875,9 @@ class TutorRenApp(tk.Tk):
         self.current_user = None
         for child in self.winfo_children():
             child.destroy()
+        self.minsize(*LOGIN_MINSIZE)
         self.resizable(False, False)
-        self.geometry(APP_GEOMETRY)
+        self.geometry(LOGIN_GEOMETRY)
         login = LoginFrame(self, self.on_login_success)
         login.pack(fill=tk.BOTH, expand=True)
 
@@ -880,6 +885,9 @@ class TutorRenApp(tk.Tk):
         self.current_user = user
         for child in self.winfo_children():
             child.destroy()
+        # Switch to app size
+        self.minsize(*APP_MINSIZE)
+        self.geometry(APP_GEOMETRY)
         self.resizable(True, True)
         Dashboard(self, self.current_user)
 
