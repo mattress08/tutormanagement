@@ -7,6 +7,7 @@ from tkinter import messagebox, ttk
 
 
 APP_TITLE = "TutorRen Management"
+APP_GEOMETRY = "1920x1080"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 EXPORT_DIR = DATA_DIR / "exports"
 EMAIL_LOG = DATA_DIR / "email_log.txt"
@@ -84,6 +85,58 @@ def init_theme(app: tk.Tk) -> None:
     style.map("Data.Treeview.Heading", background=[("active", ThemePalette.SURFACE_ALT)])
 
     style.configure("Horizontal.TSeparator", background=ThemePalette.BORDER)
+
+
+class ScrollableFrame(ttk.Frame):
+    """A reusable vertical scroll container that respects the dark theme."""
+    def __init__(self, master, **kwargs):
+        super().__init__(master, style="Background.TFrame", **kwargs)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            borderwidth=0,
+            background=ThemePalette.BACKGROUND,
+        )
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.content = ttk.Frame(self.canvas, style="Background.TFrame")
+        self.content_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
+
+        self.content.bind("<Configure>", self._on_content_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.content.bind("<Enter>", lambda _event: self._bind_mousewheel())
+        self.content.bind("<Leave>", lambda _event: self._unbind_mousewheel())
+
+    def _on_content_configure(self, _event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfigure(self.content_id, width=event.width)
+
+    def _on_mousewheel(self, event):
+        if event.delta:
+            self.canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
+        elif event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+
+    def _bind_mousewheel(self):
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self):
+        self.canvas.unbind_all("<MouseWheel>")
+        self.canvas.unbind_all("<Button-4>")
+        self.canvas.unbind_all("<Button-5>")
 
 
 # ---------- Data spec & file setup ----------
@@ -258,7 +311,7 @@ class Dashboard(ttk.Frame):
 
     def create_widgets(self):
         self.master.title(f"{APP_TITLE} — {self.current_user['username']}")
-        self.master.geometry("960x640")
+        self.master.geometry(APP_GEOMETRY)
 
         self.menu_bar = tk.Menu(self.master)
         self.master.config(menu=self.menu_bar)
@@ -418,12 +471,22 @@ class DataListView(ttk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        title = ttk.Label(self, text=self.dataset.title(), style="SectionTitle.TLabel")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.scrollable = ScrollableFrame(self)
+        self.scrollable.grid(row=0, column=0, sticky="nsew")
+
+        content = self.scrollable.content
+        content.columnconfigure(0, weight=1)
+
+        title = ttk.Label(content, text=self.dataset.title(), style="SectionTitle.TLabel")
         title.pack(anchor=tk.W)
 
-        list_card = ttk.Frame(self, style="Card.TFrame", padding=20)
+        list_card = ttk.Frame(content, style="Card.TFrame", padding=20)
         list_card.pack(fill=tk.BOTH, expand=True, pady=(18, 16))
-        list_card.columnconfigure(0, weight=1)
+        list_card.columnconfigure(0, weight=3)
+        list_card.columnconfigure(2, weight=2)
         list_card.rowconfigure(0, weight=1)
 
         self.tree = ttk.Treeview(list_card, columns=self.columns, show="headings", style="Data.Treeview")
@@ -435,18 +498,23 @@ class DataListView(ttk.Frame):
         self.tree.tag_configure("odd", background=ThemePalette.SURFACE_ALT)
 
         tree_scroll = ttk.Scrollbar(list_card, orient=tk.VERTICAL, command=self.tree.yview)
-        tree_scroll.grid(row=0, column=1, sticky="ns")
+        tree_scroll.grid(row=0, column=1, sticky="ns", padx=(12, 0))
         self.tree.configure(yscrollcommand=tree_scroll.set)
 
-        self.form_frame = ttk.LabelFrame(self, text=f"Add {self.dataset[:-1].title()}", style="Card.TLabelframe", padding=20)
-        self.form_frame.pack(fill=tk.X, pady=(0, 16))
+        self.form_frame = ttk.LabelFrame(
+            list_card,
+            text=f"Add {self.dataset[:-1].title()}",
+            style="Card.TLabelframe",
+            padding=20,
+        )
+        self.form_frame.grid(row=0, column=2, sticky=tk.N, padx=(20, 0))
 
         self.form_vars = {}
         self.form_entries: dict[str, ttk.Entry] = {}
         for idx, (field, label) in enumerate(self.add_fields):
             ttk.Label(self.form_frame, text=label, style="Card.TLabel").grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
             var = tk.StringVar()
-            entry = ttk.Entry(self.form_frame, textvariable=var, width=40)
+            entry = ttk.Entry(self.form_frame, textvariable=var, width=30)
             entry.grid(row=idx, column=1, sticky=tk.W, padx=5, pady=5)
             self.form_vars[field] = var
             self.form_entries[field] = entry
@@ -455,6 +523,7 @@ class DataListView(ttk.Frame):
         self.add_button.grid(row=len(self.add_fields), column=0, columnspan=2, pady=10)
 
         if self.dataset == "classes":
+            # Placeholders for combobox attributes populated in subclass implementation
             self.tutor_combo = None
             self.student_combo = None
 
@@ -468,7 +537,6 @@ class DataListView(ttk.Frame):
         if self.dataset == "classes" and self.tutor_combo and self.student_combo:
             tutors = load_records("tutors")
             students = load_records("students")
-            tutor_options = [f"{row['id']} — {row['name']}"] * 0  # placeholder to avoid lint warning
             tutor_options = [f"{row['id']} — {row['name']}" for row in tutors]
             student_options = [f"{row['id']} — {row['name']}" for row in students]
             self.tutor_combo.configure(values=tutor_options)
@@ -490,7 +558,7 @@ class UsersView(DataListView):
             self.form_entries["password"].configure(show="*")
         ttk.Label(self.form_frame, text="Role", style="Card.TLabel").grid(row=len(self.add_fields), column=0, sticky=tk.W, padx=5, pady=5)
         self.role_var = tk.StringVar(value=self.role_options[0])
-        self.role_combo = ttk.Combobox(self.form_frame, state="readonly", values=self.role_options, textvariable=self.role_var, width=38)
+        self.role_combo = ttk.Combobox(self.form_frame, state="readonly", values=self.role_options, textvariable=self.role_var, width=28)
         self.role_combo.grid(row=len(self.add_fields), column=1, sticky=tk.W, padx=5, pady=5)
         self.add_button.grid_configure(row=len(self.add_fields) + 1)
         if self.current_user.get("role") != "Manager":
@@ -587,11 +655,11 @@ class ClassesView(DataListView):
         start_row = len(self.add_fields)
 
         ttk.Label(self.form_frame, text="Tutor", style="Card.TLabel").grid(row=start_row, column=0, sticky=tk.W, padx=5, pady=5)
-        self.tutor_combo = ttk.Combobox(self.form_frame, state="readonly", width=38)
+        self.tutor_combo = ttk.Combobox(self.form_frame, state="readonly", width=28)
         self.tutor_combo.grid(row=start_row, column=1, sticky=tk.W, padx=5, pady=5)
 
         ttk.Label(self.form_frame, text="Student", style="Card.TLabel").grid(row=start_row + 1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.student_combo = ttk.Combobox(self.form_frame, state="readonly", width=38)
+        self.student_combo = ttk.Combobox(self.form_frame, state="readonly", width=28)
         self.student_combo.grid(row=start_row + 1, column=1, sticky=tk.W, padx=5, pady=5)
 
         ttk.Label(self.form_frame, text="Schedule", style="Card.TLabel").grid(row=start_row + 2, column=0, sticky=tk.NW, padx=5, pady=5)
@@ -793,8 +861,8 @@ class TutorRenApp(tk.Tk):
         super().__init__()
         init_theme(self)
         self.title(APP_TITLE)
-        self.geometry("940x560")
-        self.minsize(880, 520)
+        self.geometry(APP_GEOMETRY)
+        self.minsize(1280, 720)
         self.resizable(False, False)
         self.current_user = None
         self.show_login()
@@ -804,7 +872,7 @@ class TutorRenApp(tk.Tk):
         for child in self.winfo_children():
             child.destroy()
         self.resizable(False, False)
-        self.geometry("940x560")
+        self.geometry(APP_GEOMETRY)
         login = LoginFrame(self, self.on_login_success)
         login.pack(fill=tk.BOTH, expand=True)
 
